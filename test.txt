@@ -1,0 +1,2 @@
+Evaluate separation for outputs using lrs3,.
+  pesq,     stoi,    estoi,    si_sdr

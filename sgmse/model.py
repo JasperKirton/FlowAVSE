@@ -349,7 +349,8 @@ class StochasticRegenerationModel(pl.LightningModule):
 		T_orig = y.size(1)
 		norm_factor = y.abs().max().item()
 		y = y / norm_factor
-		Y = torch.unsqueeze(self._forward_transform(self._stft(y.cuda())), 0)
+		#Y = torch.unsqueeze(self._forward_transform(self._stft(y.cuda())), 0)
+		Y = torch.unsqueeze(self._forward_transform(self._stft(y)), 0)
 		Y, num_pad = pad_spec(Y)
 		with torch.no_grad():
 			if self.denoiser_net is not None:
@@ -368,7 +369,8 @@ class StochasticRegenerationModel(pl.LightningModule):
 				x = torch.randn_like(Y_denoised) * self.sigma_min + Y_denoised
 				
 				while steps <= len(t_span) - 1:
-					dphi_dt = self.forward_score(x, torch.tensor([t]).cuda(), [Y_denoised], context=context)
+					#dphi_dt = self.forward_score(x, torch.tensor([t]).cuda(), [Y_denoised], context=context)
+					dphi_dt = self.forward_score(x, torch.tensor([t]), [Y_denoised], context=context)
 					x = x + dt * dphi_dt
 					t = t + dt
 					sol.append(x)
@@ -385,8 +387,8 @@ class StochasticRegenerationModel(pl.LightningModule):
 					Y = Y[:,:,:,: tot-num_pad]
 					Y_denoised = Y_denoised[:,:,:,: tot-num_pad]
 					return sample.squeeze(), Y.squeeze(), Y_denoised.squeeze(), T_orig, norm_factor
-			else:
-				sample = Y_denoised
+			#else:
+			#	sample = Y_denoised
 
 
 		x_hat = self.to_audio(sample.squeeze(), T_orig)

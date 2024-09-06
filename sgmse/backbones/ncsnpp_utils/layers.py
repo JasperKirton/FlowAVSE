@@ -101,8 +101,7 @@ def ddpm_conv1x1(in_planes, out_planes, stride=1, bias=True, init_scale=1., padd
   """1x1 convolution with DDPM initialization."""
   conv = nn.Conv2d(in_planes, out_planes, kernel_size=1, stride=stride, padding=padding, bias=bias)
   conv.weight.data = default_init(init_scale)(conv.weight.data.shape)
-  if bias:
-    nn.init.zeros_(conv.bias)
+  nn.init.zeros_(conv.bias)
   return conv
 
 
@@ -118,12 +117,10 @@ def ncsn_conv3x3(in_planes, out_planes, stride=1, bias=True, dilation=1, init_sc
 
 def ddpm_conv3x3(in_planes, out_planes, stride=1, bias=True, dilation=1, init_scale=1., padding=1):
   """3x3 convolution with DDPM initialization."""
-
   conv = nn.Conv2d(in_planes, out_planes, kernel_size=3, stride=stride, padding=padding,
                    dilation=dilation, bias=bias)
   conv.weight.data = default_init(init_scale)(conv.weight.data.shape)
-  if bias:
-    nn.init.zeros_(conv.bias)
+  nn.init.zeros_(conv.bias)
   return conv
 
   ###########################################################################
@@ -556,7 +553,6 @@ class NIN(nn.Module):
     x = x.permute(0, 2, 3, 1)
     y = contract_inner(x, self.W) + self.b
     return y.permute(0, 3, 1, 2)
-
 
 
 class AttnBlock(nn.Module):
