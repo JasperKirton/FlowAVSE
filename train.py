@@ -98,7 +98,6 @@ if __name__ == '__main__':
 	temp_args, _ = base_parser.parse_known_args()
 	if "regen" in temp_args.mode:
 		model_cls = StochasticRegenerationModel
-	
 
 	backbone_cls_denoiser = BackboneRegistry.get_by_name(temp_args.backbone_denoiser) if temp_args.backbone_denoiser != "none" else None
 	backbone_cls_score = BackboneRegistry.get_by_name(temp_args.backbone_score) if temp_args.backbone_score != "none" else None
@@ -166,8 +165,8 @@ if __name__ == '__main__':
 	trainer = pl.Trainer.from_argparse_args(
 		arg_groups['pl.Trainer'],
 		strategy=DDPStrategy(find_unused_parameters=True), #strategy = "ddp",
-		accelerator = 'gpu',
-		devices = torch.cuda.device_count(), #can set to 1 for sigle gpu training
+		accelerator = 'cpu',
+		devices = 1, #torch.cuda.device_count(), #can set to 1 for single gpu training
 		logger=logger,
 		log_every_n_steps=10, num_sanity_val_steps=0, 
 		callbacks=callbacks,

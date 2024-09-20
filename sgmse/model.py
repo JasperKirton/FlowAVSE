@@ -36,7 +36,7 @@ class StochasticRegenerationModel(pl.LightningModule):
 		lr: float = 1e-4, ema_decay: float = 0.999,
 		t_eps: float = 3e-2, nolog: bool = False, num_eval_files: int = 50,
 		loss_type_denoiser: str = "none", loss_type_angle: str = 'mae',loss_type_score: str = 'mse', data_module_cls = None, 
-		mode = "regen-joint-training", condition = "post_denoiser",
+		mode = "regen-joint-training", condition = "noisy",
 		**kwargs 
 	):
 		"""
@@ -103,7 +103,7 @@ class StochasticRegenerationModel(pl.LightningModule):
 		parser.add_argument("--loss_type_score", type=str, default="mse", choices=("none", "mse", "mae"), help="The type of loss function to use.")
 		parser.add_argument("--loss_type_angle", type=str, default="mae", choices=("none", "mse", "mae"), help="The type of loss function to use.")        
 		parser.add_argument("--weighting_denoiser_to_score", type=float, default=0.5, help="a, as in L = a * L_denoiser + (1-a) * .")
-		parser.add_argument("--condition", default="post_denoiser", choices=["noisy", "post_denoiser", "both"])
+		parser.add_argument("--condition", default="noisy", choices=["noisy", "post_denoiser", "both"])
 		parser.add_argument("--spatial_channels", type=int, default=1)
 		return parser
 
@@ -387,8 +387,8 @@ class StochasticRegenerationModel(pl.LightningModule):
 					Y = Y[:,:,:,: tot-num_pad]
 					Y_denoised = Y_denoised[:,:,:,: tot-num_pad]
 					return sample.squeeze(), Y.squeeze(), Y_denoised.squeeze(), T_orig, norm_factor
-			#else:
-			#	sample = Y_denoised
+			else:
+				sample = Y_denoised
 
 
 		x_hat = self.to_audio(sample.squeeze(), T_orig)

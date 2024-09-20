@@ -66,3 +66,53 @@ Evaluate separation for outputs using AVSEC,.
   pesq,     stoi,    estoi,    si_sdr
 Evaluate separation for outputs using AVSEC,.
   pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+Evaluate separation for outputs using AVSEC,.
+  pesq,     stoi,    estoi,    si_sdr
+0.918567, 0.425319, 0.370477, 3.924823
+0.570775, 0.363263, 0.324829, 0.417388

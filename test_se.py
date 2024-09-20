@@ -282,6 +282,7 @@ def main():
         if args.audio_save_root != '':
             save_audio(y_den, x_hat, args.audio_save_root)
 
+        x = x[0]
         _si_sdr += si_sdr(x, x_hat)
         _pesq += pesq(16000, x, x_hat, 'wb')
         _estoi += stoi(x, x_hat, 16000, extended=True)
