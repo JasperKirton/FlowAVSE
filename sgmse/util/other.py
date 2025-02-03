@@ -98,7 +98,7 @@ def snr_dB(s,n):
     return snr_dB
 
 def pad_spec(Y):
-    T = Y.size(3)
+    T = Y.size(2)
     if T%64 !=0:
         num_pad = 64-T%64
     else:

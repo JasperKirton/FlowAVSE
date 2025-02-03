@@ -6,6 +6,7 @@ from inspect import isfunction
 import math
 import torch
 import pytorch_lightning as pl
+import torchmetrics.audio
 from torch_ema import ExponentialMovingAverage
 import wandb
 import time
@@ -21,6 +22,7 @@ from einops import rearrange, repeat
 
 import random
 
+import config
 from sgmse.backbones import BackboneRegistry
 from sgmse.util.inference import evaluate_model
 from sgmse.util.graphics import visualize_example, visualize_one
@@ -29,6 +31,7 @@ from sgmse.util.other import pad_spec, si_sdr_torch
 VIS_EPOCHS = 1 
 
 #torch.autograd.set_detect_anomaly(True)
+
 
 class StochasticRegenerationModel(pl.LightningModule):
 	def __init__(self,
@@ -68,6 +71,7 @@ class StochasticRegenerationModel(pl.LightningModule):
 		self.lr = lr
 		self.ema_decay = ema_decay
 		self.ema = ExponentialMovingAverage(self.parameters(), decay=self.ema_decay)
+		self.ema.to(device=(torch.device(config.device)))
 		self._error_loading_ema = False
 
 		self.loss_type_denoiser = loss_type_denoiser
@@ -84,21 +88,19 @@ class StochasticRegenerationModel(pl.LightningModule):
 
 		self.num_eval_files = num_eval_files
 		self.save_hyperparameters(ignore=['nolog'])
-		self.data_module = data_module_cls(**kwargs, gpu=kwargs.get('gpus', 0) > 0)
-		self._reduce_op = lambda *args, **kwargs: 0.5 * torch.sum(*args, **kwargs)
+		print(data_module_cls)
+		self.data_module = data_module_cls(gpu=kwargs.get('gpus', 0) > 0, a_only=False, **kwargs)
+		self._reduce_op = lambda *args, **kwargs:  0.5 * torch.sum(*args, **kwargs)
 		self.nolog = nolog
 
 		self.sigma_min=1e-4
-		
-
-		
 
 	@staticmethod
 	def add_argparse_args(parser):
 		parser.add_argument("--lr", type=float, default=1e-4, help="The learning rate")
 		parser.add_argument("--ema_decay", type=float, default=0.999, help="The parameter EMA decay constant (0.999 by default)")
 		parser.add_argument("--t_eps", type=float, default=0.03, help="The minimum time (3e-2 by default)")
-		parser.add_argument("--num_eval_files", type=int, default=100, help="Number of files for speech enhancement performance evaluation during training.")
+		parser.add_argument("--num_eval_files", type=int, default=1, help="Number of files for speech enhancement performance evaluation during training.")
 		parser.add_argument("--loss_type_denoiser", type=str, default="mse", choices=("none", "mse", "mae", "sisdr", "mse_cplx+mag", "mse_time+mag"), help="The type of loss function to use.")
 		parser.add_argument("--loss_type_score", type=str, default="mse", choices=("none", "mse", "mae"), help="The type of loss function to use.")
 		parser.add_argument("--loss_type_angle", type=str, default="mae", choices=("none", "mse", "mae"), help="The type of loss function to use.")        
@@ -119,14 +121,13 @@ class StochasticRegenerationModel(pl.LightningModule):
 			self.loss_fn_denoiser = lambda x, y: self._reduce_op(torch.square(torch.abs(x - y)))
 		elif self.loss_type_denoiser == "mae":
 			self.loss_fn_denoiser = lambda x, y: self._reduce_op(torch.abs(x - y))
+		elif self.loss_type_denoiser == "sisdr":
+			si_sdr = torchmetrics.audio.ScaleInvariantSignalDistortionRatio()
+			self.loss_fn_denoiser = lambda x, y: self._reduce_op(si_sdr(x, y))
 		elif self.loss_type_denoiser == "none":
 			self.loss_fn_denoiser = None
 		else:
 			raise NotImplementedError
-
-		
-
-
 
 	def configure_optimizers(self):
 		optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -140,20 +141,23 @@ class StochasticRegenerationModel(pl.LightningModule):
 	def load_denoiser_model(self, checkpoint):
 		self.denoiser_net = DiscriminativeModel.load_from_checkpoint(checkpoint).dnn
 		print("denoiser loaded")
-		
 
 	def load_score_model(self, checkpoint):
 		self.score_net = ScoreModel.load_from_checkpoint(checkpoint).dnn
 
 	# on_load_checkpoint / on_save_checkpoint needed for EMA storing/loading
-	def on_load_checkpoint(self, checkpoint):
+
+
+	def on_load_checkpoint(self, checkpoint): # can comment out if testing
 		ema = checkpoint.get('ema', None)
 		if ema is not None:
+			#checkpoint['ema'].pop()
 			self.ema.load_state_dict(checkpoint['ema'])
 		else:
 			self._error_loading_ema = True
 			warnings.warn("EMA state_dict not found in checkpoint!")
 
+	
 	def on_save_checkpoint(self, checkpoint):
 		checkpoint['ema'] = self.ema.state_dict()
 
@@ -189,7 +193,6 @@ class StochasticRegenerationModel(pl.LightningModule):
 	def _weighted_mean(self, x, w):
 		return torch.mean(x * w)
 
-	
 	def forward_score(self, x, t, score_conditioning,  context=None, **kwargs):
 		dnn_input = torch.cat([x] + score_conditioning, dim=1) #b,n_input*d,f,t
 		score = self.score_net(x = dnn_input,context = context, time_cond = t) #,context= context)
@@ -204,7 +207,6 @@ class StochasticRegenerationModel(pl.LightningModule):
 	def sample_x(self, mean, sigma):
 		eps = torch.randn_like(mean)
 		return mean+eps*sigma
-
 
 	def _step(self, batch, batch_idx):
 		x, y, visualFeatures = batch
@@ -266,12 +268,13 @@ class StochasticRegenerationModel(pl.LightningModule):
 		if loss_denoiser is not None:
 			self.log('valid_loss_denoiser', loss_denoiser, on_step=False, on_epoch=True, batch_size=self.data_module.batch_size, sync_dist=True)
 
-		# Evaluate speech enhancement performance
+		
+		# Evaluate speech enhancement performance, comment this out if necessary
 		if batch_idx == 0 and self.num_eval_files != 0:
 			num_eval_files = self.num_eval_files
-			if self.current_epoch %2 ==0 and self.current_epoch !=0:
-				num_eval_files =100
-			pesq_est, si_sdr_est, estoi_est, spec, audio, y_den = evaluate_model(self, num_eval_files, spec=not self.current_epoch%VIS_EPOCHS, audio=not self.current_epoch%VIS_EPOCHS, discriminative=discriminative)
+			#if self.current_epoch %2 ==0 and self.current_epoch !=0:
+			#	num_eval_files = 10
+			pesq_est, si_sdr_est, estoi_est, spec, audio, y_den = evaluate_model(self, num_eval_files, spec=False, audio=True)
 			print(f"PESQ at epoch {self.current_epoch} : {pesq_est:.2f}")
 			print(f"SISDR at epoch {self.current_epoch} : {si_sdr_est:.1f}")
 			print(f"ESTOI at epoch {self.current_epoch} : {estoi_est:.2f}")
@@ -283,15 +286,19 @@ class StochasticRegenerationModel(pl.LightningModule):
 			self.log('ValidationPESQ', pesq_est, on_step=False, on_epoch=True, sync_dist=True)
 			self.log('ValidationSISDR', si_sdr_est, on_step=False, on_epoch=True, sync_dist=True)
 			self.log('ValidationESTOI', estoi_est, on_step=False, on_epoch=True, sync_dist=True)
-
+			
+			
 			if audio is not None:
-				y_list, x_hat_list, x_list = audio
-				for idx, (y, x_hat, x) in enumerate(zip(y_list, x_hat_list, x_list)):
-					if self.current_epoch == 0:
-						self.logger.experiment.add_audio(f"Epoch={self.current_epoch} Mix/{idx}", (y / torch.max(torch.abs(y))).unsqueeze(-1),self.current_epoch, sample_rate=sr)
-						self.logger.experiment.add_audio(f"Epoch={self.current_epoch} Clean/{idx}", (x / torch.max(x)).unsqueeze(-1),self.current_epoch, sample_rate=sr)
-					self.logger.experiment.add_audio(f"Epoch={self.current_epoch} Estimate/{idx}", (x_hat / torch.max(torch.abs(x_hat))).unsqueeze(-1),self.current_epoch, sample_rate=sr)
-			'''
+				y_list, y_den_list, x_hat_list, x_list = audio
+				for idx, (y, y_den, x_hat, x) in enumerate(zip(y_list, y_den_list, x_hat_list, x_list)):
+					#if self.current_epoch == 99:
+					self.logger.experiment.add_audio(f"Epoch={self.current_epoch} Mix/{idx}", (y / torch.max(torch.abs(y))).unsqueeze(-1),self.current_epoch, sample_rate=sr)
+					self.logger.experiment.add_audio(f"Epoch={self.current_epoch} Clean/{idx}", (x / torch.max(x)).unsqueeze(-1),self.current_epoch, sample_rate=sr)
+					self.logger.experiment.add_audio(f"Epoch={self.current_epoch} Estimate_G/{idx}", (x_hat / torch.max(torch.abs(x_hat))).unsqueeze(-1),self.current_epoch, sample_rate=sr)
+					self.logger.experiment.add_audio(f"Epoch={self.current_epoch} Estimate_P/{idx}",
+													 (y_den / torch.max(torch.abs(y_den))).unsqueeze(-1),
+													 self.current_epoch, sample_rate=sr)
+			# visualise spec
 			if spec is not None:
 				figures = []
 				y_stft_list, x_hat_stft_list, x_stft_list = spec
@@ -302,7 +309,6 @@ class StochasticRegenerationModel(pl.LightningModule):
 						torch.abs(x_hat_stft), 
 						torch.abs(x_stft), return_fig=True))
 				self.logger.experiment.add_figure(f"Epoch={self.current_epoch}/Spec", figures) #, sync_dist=True)
-			'''
 
 		return loss
 
@@ -323,7 +329,7 @@ class StochasticRegenerationModel(pl.LightningModule):
 		return self.data_module.setup(stage=stage)
 
 	def to_audio(self, spec, length=None):
-		return self._istft(self._backward_transform(spec), length)
+		return self._istft(self._backward_transform(spec), length) #self._istft(spec, length)
 
 	def _forward_transform(self, spec):
 		return self.data_module.spec_fwd(spec)
@@ -332,7 +338,7 @@ class StochasticRegenerationModel(pl.LightningModule):
 		return self.data_module.spec_back(spec)
 
 	def _stft(self, sig):
-		return self.data_module.stft(sig)
+		return self.data_module.get_stft(sig)
 
 	def _istft(self, spec, length=None):
 		return self.data_module.istft(spec, length)
@@ -347,10 +353,12 @@ class StochasticRegenerationModel(pl.LightningModule):
 		"""
 		start = time.time()
 		T_orig = y.size(1)
-		norm_factor = y.abs().max().item()
-		y = y / norm_factor
+		#norm_factor = y.abs().max().item() not normalising data atm TODO
+		#y = y / norm_factor
 		#Y = torch.unsqueeze(self._forward_transform(self._stft(y.cuda())), 0)
-		Y = torch.unsqueeze(self._forward_transform(self._stft(y)), 0)
+		Y = self._forward_transform(self._stft(y))
+		#Y = torch.unsqueeze(self._stft(y), 0)
+		#Y = self._stft(y)
 		Y, num_pad = pad_spec(Y)
 		with torch.no_grad():
 			if self.denoiser_net is not None:
@@ -379,7 +387,6 @@ class StochasticRegenerationModel(pl.LightningModule):
 						dt = t_span[steps + 1] - t
 					steps += 1
 				sample = sol[-1]
-
 				
 				if return_stft:
 					tot = sample.shape[-1]
@@ -390,13 +397,12 @@ class StochasticRegenerationModel(pl.LightningModule):
 			else:
 				sample = Y_denoised
 
-
 		x_hat = self.to_audio(sample.squeeze(), T_orig)
-		x_hat = x_hat * norm_factor
+		x_hat = x_hat #* norm_factor
 		x_hat = x_hat.squeeze().cpu()
 
 		Y_denoised = self.to_audio(Y_denoised.squeeze(), T_orig)
-		Y_denoised = Y_denoised * norm_factor
+		Y_denoised = Y_denoised# * norm_factor
 		Y_denoised = Y_denoised.squeeze().cpu()
 
 		end = time.time()
@@ -406,3 +412,5 @@ class StochasticRegenerationModel(pl.LightningModule):
 			return x_hat, nfe, rtf
 		else:
 			return x_hat , Y_denoised
+
+

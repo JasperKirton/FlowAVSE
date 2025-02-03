@@ -3,7 +3,8 @@ torch
 scipy
 matplotlib
 einops
-opencv-python
+#ffmpeg-downloader
+opencv-python-headless
 h5py
 librosa
 torch-ema

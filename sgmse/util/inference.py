@@ -27,7 +27,7 @@ def evaluate_model(model, num_eval_files, spec=False, audio=False, discriminativ
     if spec:
         noisy_spec_list, estimate_spec_list, clean_spec_list = [], [], []
     if audio:
-        noisy_audio_list, estimate_audio_list, clean_audio_list = [], [], []
+        noisy_audio_list, y_den_list, estimate_audio_list, clean_audio_list = [], [], [], []
     
     for i in range(num_eval_files):
         # Load wavs
@@ -73,7 +73,7 @@ def evaluate_model(model, num_eval_files, spec=False, audio=False, discriminativ
 
 
         
-        y, x_hat, x = torch.from_numpy(y), torch.from_numpy(x_hat), torch.from_numpy(x)
+        y, y_den, x_hat, x = torch.from_numpy(y), torch.from_numpy(y_den), torch.from_numpy(x_hat), torch.from_numpy(x)
         if spec and i < MAX_VIS_SAMPLES:
             y_stft, x_hat_stft, x_stft= model._stft(y[0]), model._stft(x_hat[0]), model._stft(x[0])
             noisy_spec_list.append(y_stft)
@@ -82,6 +82,7 @@ def evaluate_model(model, num_eval_files, spec=False, audio=False, discriminativ
 
         if audio and i < MAX_VIS_SAMPLES:
             noisy_audio_list.append(y[0])
+            y_den_list.append(y_den[0])
             estimate_audio_list.append(x_hat[0])
             clean_audio_list.append(x[0])
 
@@ -91,7 +92,7 @@ def evaluate_model(model, num_eval_files, spec=False, audio=False, discriminativ
         else:
             return _pesq/num_eval_files, _si_sdr/num_eval_files, _estoi/num_eval_files, [noisy_spec_list, estimate_spec_list, clean_spec_list], None,  [_pesq_den/num_eval_files, _si_sdr_den/num_eval_files, _estoi_den/num_eval_files ]
     elif audio and not spec:
-            return _pesq/num_eval_files, _si_sdr/num_eval_files, _estoi/num_eval_files, None, [noisy_audio_list, estimate_audio_list, clean_audio_list],  [_pesq_den/num_eval_files, _si_sdr_den/num_eval_files, _estoi_den/num_eval_files ]
+            return _pesq/num_eval_files, _si_sdr/num_eval_files, _estoi/num_eval_files, None, [noisy_audio_list, y_den_list, estimate_audio_list, clean_audio_list],  [_pesq_den/num_eval_files, _si_sdr_den/num_eval_files, _estoi_den/num_eval_files ]
     else:
         return _pesq/num_eval_files, _si_sdr/num_eval_files, _estoi/num_eval_files, None, None,  [_pesq_den/num_eval_files, _si_sdr_den/num_eval_files, _estoi_den/num_eval_files ]
     '''

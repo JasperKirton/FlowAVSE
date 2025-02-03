@@ -128,7 +128,41 @@ class Specs(Dataset):
             self.spk_table = self.spk_table_generator(self.data_path)
             self.vid_table = self.vid_table_generator(self.data_path)
             self.sample_list = self.sample_generator_fromvid(self.sample_num)
-        
+
+        elif format == 'voxceleb2_SS': # or "voxceleb2_ssrd":
+            if subset == 'train':
+                self.data_path = "/mnt/datasets/voxcelebs/voxceleb2/dev/wav/" #data_path
+                self.noise_path = "/mnt/datasets/voxcelebs/voxceleb2/dev/wav/"
+                self.sample_num = len(glob(os.path.join(self.data_path, '*/*/*.wav')))
+                self.dynamic_mixing = False
+                self.noise_list = glob(os.path.join(self.noise_path,'*/*/*.wav')) if self.dynamic_mixing else np.random.choice(glob(os.path.join(self.noise_path,'*/*/*.wav')),self.sample_num)
+            else:
+                self.data_path = "/mnt/datasets/voxcelebs/voxceleb2/test/wav/"
+                self.noise_path = "/mnt/datasets/voxcelebs/voxceleb2/test/wav/"
+                self.sample_num = 5000 #2000
+                self.dynamic_mixing = False
+                # noise_list: changed from '*.wav'(for WHAM) to '*/*.wav' for DEMAND
+                self.noise_list = sorted(glob(os.path.join(self.noise_path,'*/*/*.wav')))[:self.sample_num] if self.dynamic_mixing else np.random.choice(glob(os.path.join(self.noise_path,'*/*/*.wav')),self.sample_num)
+
+            self.snr_list = [0,5,10] #snr_list
+            self.sample_rate = 16000 #sample_rate
+            self.chunk_size = int(16000 * 2.04) #chunk_size
+
+            self.spk_table = self.spk_table_generator(self.data_path)
+            self.vid_table = self.vid_table_generator(self.data_path)
+            self.sample_list = self.sample_generator_fromvid(self.sample_num)
+
+        elif format == "avsec":
+            # Feel free to add your own directory format
+            print("data_dir = ", data_dir)
+            print("subset = ", subset)
+            self.sample_num = len(glob(join(self.data_path, subset) + '/scenes/*_target.wav'))
+            self.clean_files = sorted(glob(join(data_dir, subset) + '/scenes/*_target.wav'))
+            self.noisy_files = sorted(glob(join(data_dir, subset) + '/scenes/*_mixed.wav'))
+            print("self.clean_files = ", self.clean_files)
+            print("self.noisy_files = ", self.noisy_files)
+
+
 
         self.dummy = dummy
         self.num_frames = num_frames
@@ -494,8 +528,8 @@ class SpecsDataModule(pl.LightningDataModule):
 
     @staticmethod
     def add_argparse_args(parser):
-        parser.add_argument("--format", type=str, default="voxceleb2_SE", choices=["voxceleb2_SE",  'voxceleb2_SS'], help="File paths follow the DNS data description.")
-        parser.add_argument("--base_dir", type=str, default="/mnt/scratch/datasets/new_avspeech", #"/mnt/scratch/datasets/new_avspeech" , "/mnt/work2/users/cyong/storm/new_avspeech"
+        parser.add_argument("--format", type=str, default="AVSEC", choices=["voxceleb2_SE",  'voxceleb2_SS', "AVSEC"], help="File paths follow the DNS data description.")
+        parser.add_argument("--base_dir", type=str, default="/media/a_hussain_disk/", #"/mnt/scratch/datasets/new_avspeech" , "/mnt/work2/users/cyong/storm/new_avspeech"
             help="The base directory of the dataset. Should contain `train`, `valid` and `test` subdirectories, "
                 "each of which contain `clean` and `noisy` subdirectories.")
         parser.add_argument("--use_sync_encoder", action="store_true", help="enable this option when the denoiser is 'ncsnpp_crossatt_sync'") # 이거 잘 안 먹히는듯? 어떻게 고쳐야할깜

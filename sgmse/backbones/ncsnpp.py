@@ -67,7 +67,7 @@ class NCSNpp(nn.Module):
 		fourier_scale = 16,
 		image_size = 256,
 		embedding_type = 'fourier',
-		input_channels = 4,
+		input_channels = 4, #4?
 		spatial_channels = 1,
 		dropout = .0,
 		centered = False,
@@ -298,12 +298,15 @@ class NCSNpp(nn.Module):
 
 		# Convert real and imaginary parts into channel dimensions
 		x_chans = []
+		if self.discriminative:
+			x = x.unsqueeze(1) # for new avsec data
 		for chan in range(self.spatial_channels):
 			x_chans.append(torch.cat([ 
 				torch.cat([x[:,[chan+in_chan],:,:].real, x[:,[chan+in_chan],:,:].imag ], dim=1) for in_chan in range(self.input_channels // 2)],
 					dim=1)
 				)
-		x = torch.cat(x_chans, dim=1) #4*D
+		#x = torch.cat(x_chans, dim=1) #4*D
+		x = x_chans[0] # for new avsec data
 
 		if self.embedding_type == 'fourier':
 			# Gaussian Fourier features embeddings.
@@ -450,14 +453,14 @@ class NCSNpp(nn.Module):
 		assert m_idx == len(modules)
 		if self.scale_by_sigma:
 			used_sigmas = used_sigmas.reshape((x.shape[0], *([1] * len(x.shape[1:]))))
-			h = h / used_sigmas
+			h = h.to(device="cuda") / used_sigmas.to(device="cuda")
 
 		# Convert to complex number
 		h = self.output_layer(h) #b,D=1,C_out,T
 		h = torch.reshape(h, (h.size(0), 2, self.spatial_channels, h.size(2), h.size(3)))
 		h = torch.permute(h, (0, 2, 3, 4, 1)).contiguous() # b,2,D,F,T -> b,D,F,T,2
 		h = torch.view_as_complex(h) #b,D,F,T
-		return h
+		return h, context
 
 
 
@@ -577,7 +580,7 @@ class visualFrontend(pl.LightningModule): # Activated visualTCN & Visualconv1d
 
 
 	def forward(self, inputBatch):
-		if inputBatch.ndim!=4:
+		if inputBatch.ndim!=4: # ?? TODO
 			B=1
 			#print('inputbatch shape', inputBatch.shape)
 			#T = inputBatch.shape[0]
@@ -748,7 +751,7 @@ class NCSNpp_crossatt(nn.Module):
 		fourier_scale = 16,
 		image_size = 256,
 		embedding_type = 'fourier',
-		input_channels = 4, #?2?
+		input_channels = 2, #?4?
 		spatial_channels = 1,
 		dropout = .0,
 		centered = False,
@@ -775,7 +778,7 @@ class NCSNpp_crossatt(nn.Module):
 			conditional = False
 			scale_by_sigma = False
 			print("Running NCSN++ Cross Attention as discriminative backbone")
-			input_channels = 2  # y.real, y.imag
+			input_channels = 2  # y.real, y.imag TODO
 
 		self.conditional = conditional  # noise-conditional
 		self.centered = centered
@@ -1010,6 +1013,9 @@ class NCSNpp_crossatt(nn.Module):
 		m_idx = 0
 		# Convert real and imaginary parts into channel dimensions
 		x_chans = []
+		if self.discriminative:
+			x = x.unsqueeze(1) # for new avsec data
+
 		for chan in range(self.spatial_channels):
 
 			#import pdb; pdb.set_trace()
@@ -1018,7 +1024,8 @@ class NCSNpp_crossatt(nn.Module):
 					dim=1)
 				)
 			
-		x = torch.cat(x_chans, dim=1) #4*D
+		#x = torch.cat(x_chans, dim=1) #4*D
+		x = x_chans[0]
 
 		if self.embedding_type == 'fourier':
 			# Gaussian Fourier features embeddings.
@@ -1657,3 +1664,5 @@ class AutoEncodeNCSNpp(nn.Module):
 		parser.add_argument("--centered", action="store_true", help="The data is already centered [-1, 1]")
 		parser.add_argument("--no-bias", action="store_true", help="The network layers do not permit any bias. forces the output to be centered and avoid these abuzz artifacts")
 		return parser
+
+#if __name__ == '__main__':

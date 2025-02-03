@@ -104,7 +104,7 @@ def main():
     base_parser = ArgumentParser(add_help=False)
     parser = ArgumentParser()
     for parser_ in (base_parser, parser):
-        parser_.add_argument("--ckpt", type=str, default='/Users/jasperkirton/Documents/COG-MHEAR/ind_diff/FlowAVSE/FlowSE_last.ckpt')
+        parser_.add_argument("--ckpt", type=str, default='/home/j_kirtonwingate/ind_diff/FlowAVSE/flow_logs_new/mode=regen-joint-training_score=ncsnpp6M_data=avsec_ch=1/version_58/checkpoints/epoch=119-step=1026840.ckpt')
         parser_.add_argument("--mode", type=str, default="storm", choices=["score-only", "denoiser-only", "storm"])
         parser_.add_argument('--log_path', type=str, default='./test.txt')
         parser_.add_argument("--testset", default='AVSEC', type=str, choices=['lrs3', 'vox', 'AVSEC', 'Grid'])
@@ -130,10 +130,10 @@ def main():
     
     model = model_cls.load_from_checkpoint(
         checkpoint_file, base_dir="",
-        batch_size=1, num_workers=0, kwargs=dict(gpu=False)
+        batch_size=16, num_workers=0, kwargs=dict(gpu=True), strict=True
     )
     model.eval(no_ema=False)
-    #model.cuda()
+    model.cuda()
 
     if not os.path.isdir(args.audio_save_root):
         if args.audio_save_root != '':
@@ -171,7 +171,7 @@ def main():
         video_dir = os.path.join(args.data_dir)
 
     elif args.testset == 'AVSEC':
-        args.data_dir = '/Users/jasperkirton/Documents/COG-MHEAR/AVSEC2/dev/scenes'
+        args.data_dir = '/media/a_hussain_disk/data/avsec_challenge/dev/scenes/'
         noisy_ext = '_mixed.wav'
         clean_ext = '_target.wav'
         video_ext = '_silent.mp4'
@@ -226,6 +226,10 @@ def main():
         visualFeature = videocap(video_path, start_frame)
         #visualFeature2 = videocap(video2_path, start_frame2)
 
+       #print(type(clean))
+       # print(type(noisy))
+       # print(type(visualFeature))
+
         '''
         clean1_n = activelev(clean1)
         clean2_n = activelev(clean2)
@@ -252,7 +256,7 @@ def main():
         #x2 = np.expand_dims(clean2, 0)#torch.Tensor(np.expand_dims(clean2, 0))
         y = np.expand_dims(noisy, 0)
         #y2 = np.expand_dims(mix2, 0)
-        visualFeature = torch.Tensor(visualFeature)
+        visualFeature = torch.Tensor(visualFeature).cuda()
         #visualFeature1 = torch.Tensor(visualFeature1).cuda()
         #visualFeature2 = torch.Tensor(visualFeature2).cuda()
 
@@ -264,7 +268,7 @@ def main():
        # for idx, visfeat in enumerate(visualFeatures):
         #x = gt_list[idx]
         #y = torch.Tensor(mix_list[idx]).cuda()
-        y = torch.Tensor(noisy)
+        y = torch.Tensor(noisy).cuda()
         x_hat, y_den = model.enhance(y, context = visualFeature)
             
         if x_hat.ndim == 1:

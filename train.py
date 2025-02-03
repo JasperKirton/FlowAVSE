@@ -12,9 +12,10 @@ import torch
 
 from sgmse.backbones.shared import BackboneRegistry
 from sgmse.data_module_vi import SpecsDataModule
-from sgmse.model import StochasticRegenerationModel
+from sgmse.model import StochasticRegenerationModel #DiscriminativeModel
 
 from pytorch_lightning.callbacks import TQDMProgressBar, ModelCheckpoint
+from dataset import *
 
 import numpy as np
 import random
@@ -54,7 +55,7 @@ class CheckpointEveryNSteps(pl.Callback):
             else:
                 filename = f"{self.prefix}_{epoch=}_{global_step=}.ckpt"
             ckpt_path = os.path.join(trainer.checkpoint_callback.dirpath, filename)
-            trainer.save_checkpoint(ckpt_path)
+            #trainer.save_checkpoint(ckpt_path)
 
 
 def get_argparse_groups(parser):
@@ -82,22 +83,25 @@ if __name__ == '__main__':
 	base_parser = ArgumentParser(add_help=False)
 	parser = ArgumentParser()
 	for parser_ in (base_parser, parser):
-		parser_.add_argument("--mode", default= "regen-joint-training", choices=["regen-joint-freeze","score-only", "denoiser-only", "regen-freeze-denoiser", "regen-joint-training"],
+		parser_.add_argument("--mode", default= "regen-joint-freeze", choices=["regen-joint-freeze","score-only", "denoiser-only", "regen-freeze-denoiser", "regen-joint-training"],
 			help="score-only calls the ScoreModel class, \
 				  denoiser-only calls the DiscriminativeModel class, \
 				  regen-... calls the StochasticRegenerationModel class with the following options: \
 				  	- regen-freeze-denoiser will freeze the denoiser, make sure to call a pretrained model \
 					- regen-joint-training will not freeze the denoiser and consequently will train jointly the denoiser and score model")
-		parser_.add_argument("--backbone_denoiser", type=str, choices=["none"] + BackboneRegistry.get_all_names(), default="ncsnpp_crossatt")
+		parser_.add_argument("--backbone_denoiser", type=str, choices=["none"] + BackboneRegistry.get_all_names(), default="ncsnpp6M")
 		parser_.add_argument("--pretrained_denoiser", default=None, help="checkpoint for denoiser") 
-		parser_.add_argument("--backbone_score", type=str, choices=["none"] + BackboneRegistry.get_all_names(), default="ncsnpp_crossatt")
+		parser_.add_argument("--backbone_score", type=str, choices=["none"] + BackboneRegistry.get_all_names(), default="ncsnpp6M")
 		parser_.add_argument("--pretrained_score", default= None, help="checkpoint for score") 
-		parser_.add_argument("--nolog", action='store_true', help="Turn off logging (for development purposes)")
+		parser_.add_argument("--nockpt", action='store_true', help="Turn off ckpt (for development purposes)")
 		parser_.add_argument("--logstdout", action="store_true", help="Whether to print the stdout in a separate file")
 		parser_.add_argument("--discriminatively", action="store_true", help="Train the backbone as a discriminative model instead")
 	temp_args, _ = base_parser.parse_known_args()
 	if "regen" in temp_args.mode:
 		model_cls = StochasticRegenerationModel
+	elif "denoiser-only" in temp_args.mode:
+		model_cls = DiscriminativeModel
+
 
 	backbone_cls_denoiser = BackboneRegistry.get_by_name(temp_args.backbone_denoiser) if temp_args.backbone_denoiser != "none" else None
 	backbone_cls_score = BackboneRegistry.get_by_name(temp_args.backbone_score) if temp_args.backbone_score != "none" else None
@@ -117,15 +121,17 @@ if __name__ == '__main__':
 			parser.add_argument_group("BackboneScore", description=backbone_cls_score.__name__))
 	else:
 		parser.add_argument_group("BackboneScore", description="none")
-	
-	
+
 
 	# Add data module args
-	data_module_cls = SpecsDataModule
+	data_module_cls = AVSEChallengeDataModule
+
 	data_module_cls.add_argparse_args(
-		parser.add_argument_group("DataModule", description=data_module_cls.__name__))
+		parser.add_argument_group("DataModule", description="none"))
 	args = parser.parse_args()
 	arg_groups = get_argparse_groups(parser)
+	format = "avsec"
+	spatial_channels = "1"
 
 	# Initialize logger, trainer, model, datamodule
 	if "regen" in temp_args.mode:
@@ -137,42 +143,71 @@ if __name__ == '__main__':
 				**vars(arg_groups['BackboneScore']),
 				**vars(arg_groups['DataModule'])
 			},
-			nolog=args.nolog
+			nockpt=args.nockpt
 		)
 		if temp_args.pretrained_denoiser is not None:
 			model.load_denoiser_model(temp_args.pretrained_denoiser)
 		if temp_args.pretrained_score is not None:
 			#model.load_score_model(torch.load(temp_args.pretrained_score))
 			model.load_score_model((temp_args.pretrained_score))
-		data_tag = model.data_module.base_dir.strip().split("/")[-3] if model.data_module.format == "whamr" else model.data_module.base_dir.strip().split("/")[-1] 
-		logging_name = f"mode={model.mode}_score={temp_args.backbone_score}_data={model.data_module.format}_ch={model.data_module.spatial_channels}"
-		
+		#data_tag = model.data_module.base_dir.strip().split("/")[-3] if model.data_module.format == "whamr" else model.data_module.base_dir.strip().split("/")[-1]
+		logging_name = f"mode={model.mode}_score={temp_args.backbone_score}_data={format}_ch={spatial_channels}"
+	elif "denoiser" in temp_args.mode:
+		model = model_cls(
+			backbone_denoiser=args.backbone_denoiser,
+			data_module_cls=data_module_cls,
+			**{
+				**vars(arg_groups['DiscriminativeModel']),
+				**vars(arg_groups['BackboneDenoiser']),
+				**vars(arg_groups['DataModule'])
+			},
+			nockpt=args.ckpt
+		)
+		logging_name = f"mode=denoiser-only_denoiser={temp_args.backbone_denoiser}_data={format}_ch={spatial_channels}"
 	
-	logger = TensorBoardLogger(save_dir=f"./.logs/", name=logging_name, flush_secs=30) if not args.nolog else None
-
+	logger = TensorBoardLogger(save_dir=f"./flow_logs_new/", name=logging_name, flush_secs=30)
 
 	# Callbacks
 	callbacks = []
-	callbacks.append(TQDMProgressBar(refresh_rate=50))
-	if not args.nolog:
+	callbacks.append(TQDMProgressBar(refresh_rate=1))
+	if not args.nockpt:
 		callbacks.append(ModelCheckpoint(dirpath=os.path.join(logger.log_dir, "checkpoints"), 
 			save_last=True, save_top_k=1, monitor="valid_loss", filename='{epoch}'))
-		callbacks.append(ModelCheckpoint(dirpath=os.path.join(logger.log_dir, "checkpoints"), 
-			save_top_k=1, monitor="ValidationPESQ", mode="max", filename='{epoch}-{pesq:.2f}'))
+		#callbacks.append(ModelCheckpoint(dirpath=os.path.join(logger.log_dir, "checkpoints"),
+		#	save_top_k=1, monitor="ValidationPESQ", mode="max", filename='{epoch}-{pesq:.2f}'))
 		callbacks.append(CheckpointEveryNSteps(save_step_frequency=30000))
+
 
 	# Initialize the Trainer and the DataModule
 	trainer = pl.Trainer.from_argparse_args(
-		arg_groups['pl.Trainer'],
-		strategy=DDPStrategy(find_unused_parameters=True), #strategy = "ddp",
-		accelerator = 'cpu',
+		arg_groups['pl.Trainer'],# strategy = "ddp",
+		accelerator = 'gpu',
 		devices = 1, #torch.cuda.device_count(), #can set to 1 for single gpu training
 		logger=logger,
-		log_every_n_steps=10, num_sanity_val_steps=0, 
+		log_every_n_steps=100, num_sanity_val_steps=0,
 		callbacks=callbacks,
-		max_epochs=40,
-		val_check_interval= 0.5
+		max_epochs=120,
+		check_val_every_n_epoch=10
+		#val_check_interval= 0.5,
 	)
-	
+
+	#model.compile()
+	#print("Model's state_dict:")
+	#sd = model.state_dict()
 	
 	trainer.fit(model)
+	
+	# test validation
+	#test_dm = data_module_cls()
+	#test_dm.setup()
+	#model.validation_step(test_dm.valid_set.__getitem__(1), 1)
+	 # test inference
+	'''
+	test_dm = data_module_cls()
+	test_dm.setup()
+	test = test_dm.valid_set
+	x, y, visualFeatures = test.__getitem__(1, raw=True)
+	visualFeatures = torch.Tensor(visualFeatures)
+	#x_hat, y_den = model.enhance(torch.Tensor(y), context = visualFeatures)
+	'''
+	#model.eval()

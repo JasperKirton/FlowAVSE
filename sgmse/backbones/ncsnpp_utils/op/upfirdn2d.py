@@ -8,6 +8,7 @@ from torch.utils.cpp_extension import load
 
 module_path = os.path.dirname(__file__)
 
+'''
 if torch.cuda.is_available():
     upfirdn2d_op = load(
         "upfirdn2d",
@@ -18,6 +19,7 @@ if torch.cuda.is_available():
     )
 else:
     upfirdn2d_op = None
+'''
 
 class UpFirDn2dBackward(Function):
     @staticmethod
@@ -146,7 +148,7 @@ class UpFirDn2d(Function):
 
 
 def upfirdn2d(input, kernel, up=1, down=1, pad=(0, 0)):
-    if input.device.type == "cpu" or input.device.type == "mps" :
+    if input.device.type == "cpu" or input.device.type == "mps" or input.device.type == "cuda":
         out = upfirdn2d_native(
             input, kernel, up, up, down, down, pad[0], pad[1], pad[0], pad[1]
         )
