@@ -18,6 +18,7 @@ from sgmse.util.other import *
 from sgmse.util.other import si_sdr, pad_spec
 from pesq import pesq
 from pystoi import stoi
+from config import *
 
 
 import matplotlib.pyplot as plt
@@ -171,7 +172,8 @@ def main():
         video_dir = os.path.join(args.data_dir)
 
     elif args.testset == 'AVSEC':
-        args.data_dir = '/media/a_hussain_disk/data/avsec_challenge/dev/scenes/'
+        args.data_dir = os.path.join(AVSEC_PATH_CLIPS, 'dev/scenes')
+        args.lips_dir = os.path.join(AVSEC_PATH_FEAT, 'lips')
         noisy_ext = '_mixed.wav'
         clean_ext = '_target.wav'
         video_ext = '_silent.mp4'
@@ -211,7 +213,7 @@ def main():
         '''
         if args.testset == 'AVSEC':
             clean_path = os.path.join(args.data_dir, filename + clean_ext)
-            video_path = os.path.join(args.data_dir, filename + video_ext)
+            video_path = os.path.join(args.lips_dir, filename + video_ext)
             noisy_path = os.path.join(args.data_dir, filename + noisy_ext)
 
         #clean1, start_frame1 = load_audio_vox(audio1_path, max_len=int(16000 * 2.04), sample_rate=model_sr) #2.04

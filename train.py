@@ -172,10 +172,10 @@ if __name__ == '__main__':
 	callbacks.append(TQDMProgressBar(refresh_rate=1))
 	if not args.nockpt:
 		callbacks.append(ModelCheckpoint(dirpath=os.path.join(logger.log_dir, "checkpoints"), 
-			save_last=True, save_top_k=1, monitor="valid_loss", filename='{epoch}'))
-		#callbacks.append(ModelCheckpoint(dirpath=os.path.join(logger.log_dir, "checkpoints"),
-		#	save_top_k=1, monitor="ValidationPESQ", mode="max", filename='{epoch}-{pesq:.2f}'))
-		callbacks.append(CheckpointEveryNSteps(save_step_frequency=30000))
+			save_last=True, save_top_k=1, monitor="valid_loss", filename='{epoch}', save_weights_only=False))
+		callbacks.append(ModelCheckpoint(dirpath=os.path.join(logger.log_dir, "checkpoints"),
+			save_top_k=1, monitor="ValidationESTOI", mode="max", filename='{epoch}-{estoi:.2f}',  save_weights_only=False))
+		#callbacks.append(CheckpointEveryNSteps(save_step_frequency=30000))
 
 
 	# Initialize the Trainer and the DataModule

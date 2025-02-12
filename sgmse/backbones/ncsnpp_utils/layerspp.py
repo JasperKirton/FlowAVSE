@@ -34,7 +34,7 @@ class GaussianFourierProjection(nn.Module):
 
   def __init__(self, embedding_size=256, scale=1.0):
     super().__init__()
-    self.W = nn.Parameter(torch.randn(embedding_size) * scale, requires_grad=False).cuda() 
+    self.W = nn.Parameter(torch.randn(embedding_size) * scale, requires_grad=False)#.cuda()
 
   def forward(self, x):
     x = x.cuda()

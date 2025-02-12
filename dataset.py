@@ -67,7 +67,7 @@ class AVSEDataset(Dataset):
         self.windows = {}
 
     def __len__(self):
-        return 1#len(self.files_list) # debug or not
+        return len(self.files_list) # debug (1) or not
 
     def __getitem__(self, idx, raw=False):
         while True:
@@ -228,7 +228,7 @@ class AVSEChallengeDataModule(pl.LightningDataModule):
             self.train_dataset_batch = AVSEDataset(self.get_files_list(join(self.data_root, "train"), self.feat_root, "train"),
                                                time_domain=self.time_domain, a_only=self.a_only,  spec_transform=self.spec_fwd,
                                                    shuffle=self.shuffle)
-            self.valid_dataset_batch = AVSEDataset(self.get_files_list(join(self.data_root, "train"), self.feat_root, "train"),
+            self.valid_dataset_batch = AVSEDataset(self.get_files_list(join(self.data_root, "dev"), self.feat_root, "dev"),
                                              time_domain=self.time_domain,a_only=self.a_only,  spec_transform=self.spec_fwd,
                                                    shuffle=self.shuffle)
             self.valid_set = AVSEDataset(self.get_files_list(join(self.data_root, "dev"), self.feat_root, "dev"),
