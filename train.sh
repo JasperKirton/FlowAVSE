@@ -13,4 +13,4 @@ pip install ffmpeg-python
 #conda install cudatoolkit=11.2
 #pip install torch torchaudio torchvision --upgrade
 
-python train.py --batch_size=4 --lr=1e-4 --mode=regen-joint-training --weighting_denoiser_to_score=0.5 --num_eval_files=10 --shuffle --condition="post_denoiser"
+python train.py --batch_size=1 --lr=1e-4 --mode=regen-joint-training --weighting_denoiser_to_score=0.5 --num_eval_files=1 --condition="post_denoiser" --nockpt

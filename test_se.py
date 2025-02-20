@@ -105,7 +105,7 @@ def main():
     base_parser = ArgumentParser(add_help=False)
     parser = ArgumentParser()
     for parser_ in (base_parser, parser):
-        parser_.add_argument("--ckpt", type=str, default='/home/j_kirtonwingate/ind_diff/FlowAVSE/flow_logs_new/mode=regen-joint-training_score=ncsnpp6M_data=avsec_ch=1/version_58/checkpoints/epoch=119-step=1026840.ckpt')
+        parser_.add_argument("--ckpt", type=str, default='/home/j_kirtonwingate/ind_diff/FlowAVSE/flow_logs_new/mode=regen-joint-training_score=ncsnpp6M_data=avsec_ch=1/version_75/checkpoints/epoch=69-estoi=0.00.ckpt')
         parser_.add_argument("--mode", type=str, default="storm", choices=["score-only", "denoiser-only", "storm"])
         parser_.add_argument('--log_path', type=str, default='./test.txt')
         parser_.add_argument("--testset", default='AVSEC', type=str, choices=['lrs3', 'vox', 'AVSEC', 'Grid'])

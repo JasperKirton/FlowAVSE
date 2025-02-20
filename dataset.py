@@ -34,7 +34,7 @@ def subsample_list(inp_list: list, sample_rate: float):
 
 
 class AVSEDataset(Dataset):
-    def __init__(self, files_list, shuffle=True, seed=SEED, subsample=1,
+    def __init__(self, files_list, shuffle=False, seed=SEED, subsample=1,
                  clipped_batch=True, window="hann", sample_items=True, time_domain=False, a_only=False, spec_transform=None,
                  normalize="noisy"):
         super(AVSEDataset, self).__init__()
@@ -67,7 +67,7 @@ class AVSEDataset(Dataset):
         self.windows = {}
 
     def __len__(self):
-        return len(self.files_list) # debug (1) or not
+        return 1#len(self.files_list) # debug (1) or not
 
     def __getitem__(self, idx, raw=False):
         while True:
@@ -228,7 +228,7 @@ class AVSEChallengeDataModule(pl.LightningDataModule):
             self.train_dataset_batch = AVSEDataset(self.get_files_list(join(self.data_root, "train"), self.feat_root, "train"),
                                                time_domain=self.time_domain, a_only=self.a_only,  spec_transform=self.spec_fwd,
                                                    shuffle=self.shuffle)
-            self.valid_dataset_batch = AVSEDataset(self.get_files_list(join(self.data_root, "dev"), self.feat_root, "dev"),
+            self.valid_dataset_batch = AVSEDataset(self.get_files_list(join(self.data_root, "train"), self.feat_root, "train"),
                                              time_domain=self.time_domain,a_only=self.a_only,  spec_transform=self.spec_fwd,
                                                    shuffle=self.shuffle)
             self.valid_set = AVSEDataset(self.get_files_list(join(self.data_root, "dev"), self.feat_root, "dev"),

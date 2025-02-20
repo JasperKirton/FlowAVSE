@@ -1180,7 +1180,7 @@ class NCSNpp_crossatt(nn.Module):
 		assert m_idx == len(modules)
 		if self.scale_by_sigma:
 			used_sigmas = used_sigmas.reshape((x.shape[0], *([1] * len(x.shape[1:]))))
-			h = h / used_sigmas
+			h = h.to(device="cuda:0") / used_sigmas.to(device="cuda:0") # during validation this is needed but seems to be a bottlneck TODO
 
 		# Convert to complex number
 		h = self.output_layer(h) #b,D=1,C_out,T
@@ -1231,7 +1231,7 @@ class NCSNpp12M(NCSNpp):
 
 
 @BackboneRegistry.register("ncsnpp6M")
-class NCSNpp6M(NCSNpp):
+class NCSNpp6M(NCSNpp_crossatt):
 	"""Tiny-scale NCSN++ model. ~6M parameters"""
 
 	def __init__(self, **kwargs):

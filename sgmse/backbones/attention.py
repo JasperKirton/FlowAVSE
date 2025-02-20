@@ -206,7 +206,7 @@ class SpatialTransformer(nn.Module):
         #                                      kernel_size=1,
         #                                      stride=1,
         #                                      padding=0))
-        
+        '''
         if res==64:
             self.proj1 = nn.Linear(256,64)
             self.proj2 = nn.Linear(64,256)
@@ -216,7 +216,9 @@ class SpatialTransformer(nn.Module):
         else:
             self.proj1 = nn.Linear(256,32)
             self.proj2 = nn.Linear(32,256)
-            
+        '''
+        self.proj1 = nn.Linear(96, res)
+        self.proj2 = nn.Linear(res, 96)
     def forward(self, x, context=None):
         x_in = x # for residual connection
         x = self.norm(x) # [8, 256, 64, 64]
